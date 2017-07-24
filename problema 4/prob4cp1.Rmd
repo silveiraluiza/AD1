@@ -1,0 +1,94 @@
+---
+title: "Untitled"
+author: "Luiza Carvalho"
+date: "24 de julho de 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(dplyr)
+library(ggplot2)
+
+```
+
+Parte 1: você e um problema pequeno
+Dados de commits no github
+
+Para essa parte do problema usaremos uma amostra dados de dados da atividade global do github. Os dados brutos contém a contagem de quantas pessoas editaram arquivos com cada extensão de arquivo em cada dia de 2016 e 2017 no github. Não temos dados de todos os repositórios nem de todos os usuários, portanto estamos trabalhando com uma amostra. 
+
+O que fazer
+
+Nessa parte do problema, você responderá primeiro duas perguntas nossas. Como de costume, a seguir você gerará as suas perguntas. Responda ambas as perguntas em um relatório. Lembre de escrever uma frase com o vocabulário do domínio do problema (isso é, programação no github) explicando seu achado.
+
+Escolha duas linguagens de programação que lhe interessem e responda o seguinte: 
+
+Para cada uma delas, há uma diferença significativa na sua popularidade durante a semana e durante o fim de semana? Essa diferença é grande?
+
+Existe uma diferença significativa entre as duas linguagens na sua variação de popularidade nos finais de semana?
+
+Lembre: não comece sua análise sem antes fazer um descritivo dos dados. Mostre esse descritivo ao leitor. Lide com outliers, valores faltantes e coisas do tipo, se houverem.
+
+Dica: no tipo de dados que estamos usando, parece muito necessário dar uma olhada em uma linha do tempo.
+
+As linguagens escolhidas foram JavaScript e Python.
+
+``` {r}
+dados <- read.csv("github-users-committing-filetypes.csv")
+
+dados <- dados %>% filter(file_extension == "js" | file_extension == "py")
+
+dados <- dados %>% mutate(full_date = paste(month_day, the_month, the_year, sep = '-'))
+
+dados <- dados %>% mutate(week_day= weekdays(as.Date(full_date,'%d-%m-%Y')))
+
+```
+
+
+```{r}
+js <- dados %>% filter(file_extension == "js")
+
+js.2017 <- js %>% filter(the_year == 2017)
+js.2016 <- js %>% filter(the_year == 2016)
+
+js.2017 <- js.2017 %>% group_by(the_month) %>% mutate(users_month = sum(users))
+
+js.2016 <- js.2016 %>% group_by(the_month) %>% mutate(users_month = sum(users))
+
+js <- rbind(js.2016,js.2017)
+
+py <- dados %>% filter(file_extension == "py")
+
+py.2017 <- py %>% filter(the_year == 2017)
+py.2016 <- py %>% filter(the_year == 2016)
+
+py.2017 <- py.2017 %>% group_by(the_month) %>% mutate(users_month = sum(users))
+
+py.2016 <- py.2016 %>% group_by(the_month) %>% mutate(users_month = sum(users))
+
+py <- rbind(py.2016,py.2017)
+
+```
+
+sssssss
+
+
+
+
+```{r}
+js %>% ggplot(aes(x = as.factor(the_month), y = users_month, colour = as.factor(the_year))) + geom_point() 
+
+py %>% ggplot(aes(x = as.factor(the_month), y = users_month, colour = as.factor(the_year))) + geom_point() + ylim(10000, 200000) + scale_color_manual(values=c("#999999", "#E69F00"))
+```
+
+```{r}
+
+js <- js %>% group_by(week_day) %>% mutate(user_day = sum(users)) 
+
+py <- py %>% group_by(week_day) %>% mutate(user_day = sum(users))
+
+js %>% ggplot(aes(x = week_day, y = user_day)) + geom_point(color="#4286f4")+ ylim(290000, 550000)
+
+py %>% ggplot(aes(x = week_day, y = user_day)) + geom_point(color="#E69F00")  + scale_y_continuous(limits = c(150000, 380000))
+                                                                                                                                                                                                                                  ```
