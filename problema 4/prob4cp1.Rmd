@@ -84,10 +84,10 @@ names(dados)
 
 ```{r, fig.width=9,fig.height=7}
 
-p1 <- java %>% ggplot(aes(x = the_month, y = users_month, colour = as.factor(the_year))) + geom_point()  +geom_line()+  scale_x_continuous(breaks=c(1,3,6,9,12)) + ylim(10000, 160000)
+p1 <- java %>% ggplot(aes(x = the_month, y = users_month, colour = as.factor(the_year))) + geom_point()  +geom_line()+  scale_x_continuous(breaks=c(1,3,6,9,12)) + ylim(10000, 160000) + labs(title = "Edições por Mês (Java)", x = "Mês" , y= "Número de Usuários que Fizeram Edições", colour = "Ano")
 
 
-p2 <- py %>% ggplot(aes(x =the_month, y = users_month, colour = as.factor(the_year))) + geom_point() + geom_line() + ylim(10000, 160000) +  scale_x_continuous(breaks=c(1,3,6,9,12))+ scale_color_manual(values=c("#999999", "#E69F00"))
+p2 <- py %>% ggplot(aes(x =the_month, y = users_month, colour = as.factor(the_year))) + geom_point() + geom_line() + ylim(10000, 160000) +  scale_x_continuous(breaks=c(1,3,6,9,12))+ scale_color_manual(values=c("#999999", "#E69F00")) + labs(title = "Edições por Mês (Python)", x = "Mês" , y= "Número de Usuários que Fizeram Edições", colour = "Ano")
 
 require("gridExtra")
 grid.arrange(p1, p2)
@@ -102,9 +102,9 @@ java <- java %>% group_by(week_day) %>% mutate(user_day = sum(users))
 py <- py %>% group_by(week_day) %>% mutate(user_day = sum(users))
 
 
-p1 <- java %>% ggplot(aes(x = week_day, y = user_day)) + geom_point(color="#4286f4")+ ylim(142000, 380000) + scale_x_discrete(limits=c("segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado", "domingo"))
+p1 <- java %>% ggplot(aes(x = week_day, y = user_day)) + geom_point(color="#4286f4")+ ylim(142000, 380000) + scale_x_discrete(limits=c("segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado", "domingo")) + labs(title = "Edições por Dia da Semana (Java)", x = "Dia da Semana" , y= "Usuários que Fizeram Edições")
 
-p2 <- py %>% ggplot(aes(x = week_day, y = user_day)) + geom_point(color="#E69F00")  + scale_y_continuous(limits = c(142000, 380000)) + scale_x_discrete(limits=c("segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado", "domingo"))
+p2 <- py %>% ggplot(aes(x = week_day, y = user_day)) + geom_point(color="#E69F00")  + scale_y_continuous(limits = c(142000, 380000)) + scale_x_discrete(limits=c("segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado", "domingo")) + labs(title = "Edições por Dia da Semana (Python)", x = "Dia da Semana" , y= "Usuários que Fizeram Edições")
 
 grid.arrange(p1, p2)
                                                                             
@@ -132,7 +132,7 @@ java.percent$language <- "java"
 
 total.percent <- rbind(py.percent, java.percent)
 
-total.percent %>% ggplot(aes(x = week, y = percent)) + geom_col(aes(fill = language),stat = "identity",position = "dodge") + scale_x_discrete(limits=c("segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado", "domingo")) + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+total.percent %>% ggplot(aes(x = week, y = percent)) + geom_col(aes(fill = language),stat = "identity",position = "dodge") + scale_x_discrete(limits=c("segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado", "domingo")) + theme(axis.text.x = element_text(angle = 45, hjust = 1)) + labs(title = "Porcentagem de Edições por Dia da Semana", x = "Dia da Semana" , y= "Porcentagem", fill = "Linguagem")
 
   
 ```
