@@ -109,4 +109,31 @@ p2 <- py %>% ggplot(aes(x = week_day, y = user_day)) + geom_point(color="#E69F00
 grid.arrange(p1, p2)
                                                                             
 ```
-                                                                                                                                                                                                                                        
+
+```{r}
+week <- c("segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado", "domingo")
+
+users.py <- c(318192, 342855, 341728, 333628, 309929, 177409, 181123)
+
+users.java <- c(245899, 262314, 261528, 254610, 239591, 142507, 147985)
+  
+py.percent <- as.data.frame(week)
+py.percent$users <- users.py
+py.percent$total <- sum(users.py)
+py.percent$percent <- (py.percent$users / py.percent$total) * 100
+py.percent$language <- "py"
+
+
+java.percent <- as.data.frame(week)
+java.percent$users <- users.java
+java.percent$total <- sum(users.java)
+java.percent$percent <- (java.percent$users / java.percent$total) * 100
+java.percent$language <- "java"
+
+total.percent <- rbind(py.percent, java.percent)
+
+total.percent %>% ggplot(aes(x = week, y = percent)) + geom_col(aes(fill = language),stat = "identity",position = "dodge") + scale_x_discrete(limits=c("segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado", "domingo")) + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+  
+```
+                                                                                                                                                                                                                                    
