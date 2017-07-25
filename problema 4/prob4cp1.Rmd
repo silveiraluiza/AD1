@@ -1,5 +1,5 @@
 ---
-title: "Untitled"
+title: "Problema 4 Checkpoint 1"
 author: "Luiza Carvalho"
 date: "24 de julho de 2017"
 output: html_document
@@ -12,39 +12,44 @@ library(dplyr)
 library(ggplot2)
 
 ```
+## Introdução
 
 Para essa parte do problema usaremos uma amostra dados de dados da atividade global do github. Os dados brutos contém a contagem de quantas pessoas editaram arquivos com cada extensão de arquivo em cada dia de 2016 e 2017 no github. Não temos dados de todos os repositórios nem de todos os usuários, portanto estamos trabalhando com uma amostra. 
 
-Nessa parte do problema, você responderá primeiro duas perguntas nossas. Como de costume, a seguir você gerará as suas perguntas. Responda ambas as perguntas em um relatório. Lembre de escrever uma frase com o vocabulário do domínio do problema (isso é, programação no github) explicando seu achado.
+### Perguntas 
 
 Escolha duas linguagens de programação que lhe interessem e responda o seguinte: 
 
-Para cada uma delas, há uma diferença significativa na sua popularidade durante a semana e durante o fim de semana? Essa diferença é grande?
+1. Para cada uma delas, há uma diferença significativa na sua popularidade durante a semana e durante o fim de semana? Essa diferença é grande?
 
-Existe uma diferença significativa entre as duas linguagens na sua variação de popularidade nos finais de semana?
-
-Lembre: não comece sua análise sem antes fazer um descritivo dos dados. Mostre esse descritivo ao leitor. Lide com outliers, valores faltantes e coisas do tipo, se houverem.
-
-Dica: no tipo de dados que estamos usando, parece muito necessário dar uma olhada em uma linha do tempo.
+2. Existe uma diferença significativa entre as duas linguagens na sua variação de popularidade nos finais de semana?
 
 As linguagens escolhidas foram Java e Python.
 
 ## Conhecendo e Manipulando os Dados
+
+O conjunto de dados é uma amostra de dados da atividade global do github, suas variáveis são: a extensão do arquivo, o dia do mês, o mês e o ano em que arquivos com essa extenção foram editados e o número de usuários que editaram os arquivos.
+
+Para responder as perguntas dessa análise precisamos manipular os dados para obeter um dataframe com apenas as duas extensões de arquivos escolhidas (py e java) e também será feita uma manipulação para obtermos o dia da semana equivalente a data em que os arquivos com determinada extensão foram editados.
  
 ``` {r}
+#Importando Dados
 dados <- read.csv("github-users-committing-filetypes.csv")
-unique(dados$file_extension)
+
+#Selecionando apenas as extensões que serão utilizadas
 dados <- dados %>% filter(file_extension == "java" | file_extension == "py")
 
 head(dados)
 names(dados)
 
+# Obtendo o dia da semana de cada data
 dados <- dados %>% mutate(full_date = paste(month_day, the_month, the_year, sep = '-'))
 
 dados <- dados %>% mutate(week_day= weekdays(as.Date(full_date,'%d-%m-%Y')))
 
 ```
 
+Para analisar o panorama das edições dos arquivos por mês foi necessária a criação de mais um campo no dataframe, o qual mostra a soma de todas as edições feitas para cada linguagem de programação em um mês.
 
 ```{r}
 java <- dados %>% filter(file_extension == "java")
@@ -69,6 +74,8 @@ py.2016 <- py.2016 %>% group_by(the_month) %>% mutate(users_month = sum(users))
 
 py <- rbind(py.2016,py.2017)
 ```
+
+Aqui então temos o sumário da amostra e as novas variáveis adicionadas ao dataframe que serão utilizadas para está análise.
 
 ```{r}
 
@@ -110,7 +117,7 @@ grid.arrange(p1, p2)
                                                                             
 ```
 
-```{r}
+```{r, fig.width=9,fig.height=7}
 week <- c("segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado", "domingo")
 
 users.py <- c(318192, 342855, 341728, 333628, 309929, 177409, 181123)
