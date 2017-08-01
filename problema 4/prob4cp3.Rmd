@@ -1,0 +1,124 @@
+---
+title: "Problema 4 - Checkpoint 3"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(dplyr)
+library(ggplot2)
+library(plotly)
+library(resample)
+```
+
+5. A variância na atividade de uma linguagem no final de semana é menor do que durante a semana? R: Creio que sim, tanto pelo fato do final de semana conter menos dias como porque em geral se programa menos nos finais de semana, fazendo com que a atividade nesses dias seja menor e mais homogênea.
+
+6. Os meses que marcam período festivo ou de férias possuem contribuições significativamente diferentes do que os outros? R: Acredito que sim, principalmente nos meses de Dezembro e Janeiro por conta do Natal e Ano Novo.
+
+
+```{r}
+
+dados <- read.csv("github-users-committing-filetypes.csv")
+
+unique(dados$file_extension)
+
+not.language <- dados %>% filter(file_extension  %in% c("xml", "txt", "yml","png","h","scss", "jpg", "lock", "ts", "gradle","svg", "rst", "gif","ico","config","pdf","yaml", "html", "eot", "json", "less", "map", "pbxproj","ttf","woff", "css", "csproj"))
+
+dados <- setdiff(dados, not.language)
+
+dados <- dados %>% mutate(full_date = paste(month_day, the_month, the_year, sep = '-'))
+
+dados <- dados %>% mutate(week_day= weekdays(as.Date(full_date,'%d-%m-%Y')))
+
+
+dados.week <- dados %>% filter(week_day != "sábado" & week_day != "domingo")
+dados.weekend <- dados %>% filter(week_day == "sábado" | week_day == "domingo")
+
+dados.week$week_day = FALSE
+dados.weekend$week_day = TRUE
+
+dados = rbind(dados.week,dados.weekend)
+
+rm(dados.week)
+rm(dados.weekend)
+
+names(dados)[7] <- "weekend"
+
+plot_p1 <- dados %>%
+  ggplot(aes(x = weekend, y = users, color = file_extension)) +
+  geom_boxplot() +
+  labs(title = "Atividade de usuários", x = "Final de Semana", y = "Usuários", color="Extensão do Arquivo") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+plot_p1
+
+```
+
+
+
+
+
+## C
+
+
+```{r}
+
+plot_p1 <- dados %>% filter(file_extension == "c") %>%
+  ggplot(aes(x = weekend, y = users, fill = weekend)) +
+  geom_boxplot() +
+  labs(title = "Atividade de usuários (C)", x = "Final de Semana", y = "Usuários") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+ggplotly(plot_p1)
+
+```
+
+
+
+
+```{r}
+c <- dados %>% filter(file_extension == "c")
+
+var_c <- bootstrap2(c$users, 
+                         treatment = cs$weekend,
+                         var,
+                         R = 15000)
+
+var_c_ci <- CI.percentile(var_c, probs = c(.025, .975))
+
+data.frame(var_c_ci) %>% 
+  ggplot() + 
+  geom_errorbar(aes(x = "Intervalo de confiança da diferença entre as variâncias", ymin = X2.5., ymax = X97.5.), width = .2) + 
+  geom_hline(yintercept = 35150.96, colour = "red")
+                                                                            
+```
+
+## Meses
+
+```{r}
+
+dados$holidays = dados$the_month %in% c(1,7, 12)
+
+p2 <- dados %>% ggplot(aes(x=holidays, y=users, fill = holidays )) + geom_boxplot(outlier.shape = NA) 
+
+ggplotly(p2)
+```
+
+## mediana
+
+```{r}
+median_holidays <- bootstrap2(dados$users, 
+                         treatment = dados$holidays,
+                         median,
+                         R = 15000)
+
+median_holidays_ci <- CI.percentile(median_holidays, probs = c(.025, .975))
+
+
+data.frame(median_holidays_ci) %>% 
+  ggplot() + 
+  geom_errorbar(aes(x = "Intervalo de confiança da diferença entre as medianas", ymin = X2.5., ymax = X97.5.), width = .2) + 
+  geom_hline(yintercept = 465.5, colour = "#00bfc4")
+      
+```

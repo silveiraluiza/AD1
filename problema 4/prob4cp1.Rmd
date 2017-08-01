@@ -10,6 +10,9 @@ knitr::opts_chunk$set(echo = TRUE)
 
 library(dplyr)
 library(ggplot2)
+library(gridExtra)
+library(resample)
+library(plotly)
 
 ```
 ## Introdução
@@ -30,7 +33,7 @@ As linguagens escolhidas foram Java e Python.
 
 O conjunto de dados é uma amostra de dados da atividade global do github, suas variáveis são: a extensão do arquivo, o dia do mês, o mês e o ano em que arquivos com essa extenção foram editados e o número de usuários que editaram os arquivos.
 
-Para responder as perguntas dessa análise precisamos manipular os dados para obeter um dataframe com apenas as duas extensões de arquivos escolhidas (py e java) e também será feita uma manipulação para obtermos o dia da semana equivalente a data em que os arquivos com determinada extensão foram editados.
+Para responder as perguntas dessa análise precisamos manipular os dados para obter um dataframe com apenas as duas extensões de arquivos escolhidas (py e java) e também será feita uma manipulação para obtermos o dia da semana equivalente a data em que os arquivos com determinada extensão foram editados.
  
 ``` {r, message=FALSE,warning=FALSE}
 #Importando Dados
@@ -73,6 +76,11 @@ py.2017 <- py.2017 %>% group_by(the_month) %>% mutate(users_month = sum(users))
 py.2016 <- py.2016 %>% group_by(the_month) %>% mutate(users_month = sum(users))
 
 py <- rbind(py.2016,py.2017)
+
+rm(py.2017)
+rm(py.2016)
+rm(java.2016)
+rm(java.2017)
 ```
 
 Aqui então temos o sumário da amostra e as novas variáveis adicionadas ao dataframe que serão utilizadas para está análise.
@@ -97,68 +105,144 @@ p1 <- java %>% ggplot(aes(x = the_month, y = users_month, colour = as.factor(the
 
 p2 <- py %>% ggplot(aes(x =the_month, y = users_month, colour = as.factor(the_year))) + geom_point() + geom_line() + ylim(10000, 160000) +  scale_x_continuous(breaks=c(1,3,6,9,12))+ scale_color_manual(values=c("#999999", "#E69F00")) + labs(title = "Edições por Mês (Python)", x = "Mês" , y= "Número de Usuários que Fizeram Edições", colour = "Ano")
 
-require("gridExtra")
 grid.arrange(p1, p2)
 ```
 
 É possível observar que ambas as linguagens se comportam de maneira semelhante, tendo valores relativamente consistentes durante 2016 e uma queda abrupta no quarto e quinto mês de 2017, não há dados sobre as edições feitas após maio de 2017.
 
-Também é possível observar que python em geral possui mais edições do que java, sendo seu total de edições por mês sempre superior ao da outra linguagem.
+Também é possível observar que nessa amostra python em geral possui mais edições do que java, sendo seu total de edições por mês sempre superior ao da outra linguagem.
 
-## Popularidade por Dia da Semana
+## Popularidade por Final de Semana vs Dia de Semana (Python)
 
-Abaixo será mostrado o gráfico do total de edições por dia da semana de acordo com cada linguagem:
+Abaixo visualizaremos o gráfico que compara a atividade dos usuários que programam em python, separando-a em final de semana e dia da semana:
 
 ```{r, fig.width=9,fig.height=7,message=FALSE,warning=FALSE}
 
-java <- java %>% group_by(week_day) %>% mutate(user_day = sum(users)) 
+# Separando os dados entre semana e final de semana
 
-py <- py %>% group_by(week_day) %>% mutate(user_day = sum(users))
+py.week <- py %>% filter(week_day != "sábado" & week_day != "domingo")
+py.weekend <- py %>% filter(week_day == "sábado" | week_day == "domingo")
+
+java.week <- java %>% filter(week_day != "sábado" & week_day != "domingo")
+java.weekend <- java %>% filter(week_day == "sábado" | week_day == "domingo")
+
+py.week$week_day = FALSE
+py.weekend$week_day = TRUE
+
+java.week$week_day = FALSE
+java.weekend$week_day = TRUE
+
+java <- rbind(java.week,java.weekend)
+py <- rbind(py.week,py.weekend)
+
+names(java)[7] <- "weekend"
+
+names(py)[7] <- "weekend"
+
+rm(py.week)
+rm(py.weekend)
+rm(java.week)
+rm(java.weekend)
 
 
-p1 <- java %>% ggplot(aes(x = week_day, y = user_day)) + geom_point(color="#4286f4")+ ylim(142000, 380000) + scale_x_discrete(limits=c("segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado", "domingo")) + labs(title = "Edições por Dia da Semana (Java)", x = "Dia da Semana" , y= "Usuários que Fizeram Edições")
+plot_py <- py %>%
+  ggplot(aes(x = weekend, y = users, color = weekend)) +
+  geom_boxplot() +  geom_jitter(width = .1) +
+  labs(title = "Atividade de usuários (Python)", x = "Final de Semana", y = "Usuários") +
+  theme(plot.title = element_text(hjust = 0.5)) + scale_color_manual(values=c("#999999", "#E69F00")) + guides(color=FALSE)
 
-p2 <- py %>% ggplot(aes(x = week_day, y = user_day)) + geom_point(color="#E69F00")  + scale_y_continuous(limits = c(142000, 380000)) + scale_x_discrete(limits=c("segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado", "domingo")) + labs(title = "Edições por Dia da Semana (Python)", x = "Dia da Semana" , y= "Usuários que Fizeram Edições")
+plot_py
 
-grid.arrange(p1, p2)
+```
+
+É possível visualizar que há uma diferença significativa entre a atividade dos usuários nos dias de semana e nos finais de semana, sendo a atividade nos fins de semana significativamente maior.
+
+No entanto como temos apenas uma amostra da população não é possível afirmar que essa conclusão é muito confiável, portanto será utilizado o bootstraping (que é usar a amostra como substituto da população e simular a amostragem através de reamostragem com reposição, assim fornecendo uma estimativa precisa da variação na distribuição amostral) para determinar o intervalo de confiança na diferença da atividade dos usuários entre os dias de semana e os fins de semana. Utilizaremos um intervalo de confiança de 95%.
+
+
+```{r}
+median_py <- bootstrap2(py$users, 
+                         treatment = py$weekend,
+                         median,
+                         R = 15000)
+
+median_py_ci <- CI.percentile(median_py, probs = c(.025, .975))
+
+data.frame(median_py_ci) %>% 
+  ggplot() + 
+  geom_errorbar(aes(x = "Intervalo de confiança da diferença entre as medianas", ymin = X2.5., ymax = X97.5.), width = .2) + 
+  geom_hline(yintercept = 2150, colour = "#E69F00") 
+                                                                          
+```
+
+Visualizando o gráfico acima é possível verificar que a conclusão obtida observando a amostra é válida, pois existe uma diferença significativa entre as contribuições nos dias de semana e nos finais de semana, sendo as dos dias de semana no possuindo no mínimo 2062.5 e no máximo 2235.5 atividades de usuário a mais com 95% de confiança. 
+
+## Popularidade por Final de Semana vs Dia de Semana (Java)
+
+Abaixo visualizaremos o gráfico que compara a atividade dos usuários que programam em java, separando-a em final de semana e dia da semana:
+
+```{r, fig.width=9,fig.height=7,message=FALSE,warning=FALSE}
+
+plot_java <- java %>%
+  ggplot(aes(x = weekend, y = users, color = weekend)) +
+  geom_boxplot() +  geom_jitter(width = .1) +
+  labs(title = "Atividade de usuários (Java)", x = "Final de Semana", y = "Usuários") +
+  theme(plot.title = element_text(hjust = 0.5))+ guides(color=FALSE)
+
+plot_java
+
+```
+
+Assim como aconteceu com python é visível que existe uma grande diferença entre a contribuição dos usuários nos dias de semana e nos finais de semana, sendo as contribuições nos dias de semana maiores e mais comuns. Também iremos calcular com o bootstrap o intervalo de confiança da subtração das medianas para podermos afirmar que nossa observação é válida.
+
+```{r}
+median_ja <- bootstrap2(java$users, 
+                         treatment = java$weekend,
+                         median,
+                         R = 15000)
+
+median_ja_ci <- CI.percentile(median_ja, probs = c(.025, .975))
+
+data.frame(median_ja_ci) %>% 
+  ggplot() + 
+  geom_errorbar(aes(x = "Intervalo de confiança da diferença entre as medianas", ymin = X2.5., ymax = X97.5.), width = .2) + 
+  geom_hline(yintercept = 1475.5, colour = "red")
                                                                             
 ```
 
-É possível observar que tanto em Java como em Python há um maior número de edições durante a semana do que nos finais de semana, sendo o número de edições em qualquer dia da semana significamente superior ao número das edições no sábado ou no domingo em ambos os casos. Assim, é possível responder a primeira pergunta desta análise.
+Mais uma vez o intervalo de confiança confirma nossa hipótese, mostrando que as atividades nos dias de semana possuem no mínimo 1390.5 e no máximo 1562 atividades de usuário a mais que as do final de semana com 95% de confiança. 
 
-1. Para cada uma delas, há uma diferença significativa na sua popularidade durante a semana e durante o fim de semana? Essa diferença é grande?
+## Variação da Popularidade no Final de Semana para ambas linguagens
 
-Há sim uma diferença significativa na popularidade de ambas as linguagens durante a semana e durante o fim de semana, as linguagens são muito mais populares durante a semana, a diferença entre a popularidade é grande, como se pode observar nos gráficos acima.
-
-Para responder a segunda pergunta foi criado um gráfico comparando a porcentagem de edições por dia da semana de cada linguagem, ele será exposto abaixo:
+Para responder a segunda pergunta foi criado um gráfico comparando os boxplots das atividades de usuário nos finais de semana para cada linguagem:
 
 ```{r, fig.width=8,fig.height=5,message=FALSE,warning=FALSE}
-week <- c("segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado", "domingo")
+java$language <- "Java"
+py$language <- "Python"
 
-users.py <- c(318192, 342855, 341728, 333628, 309929, 177409, 181123)
+dados <- rbind(java,py)
+dados <- dados %>% filter(weekend == TRUE)  
 
-users.java <- c(245899, 262314, 261528, 254610, 239591, 142507, 147985)
-  
-py.percent <- as.data.frame(week)
-py.percent$users <- users.py
-py.percent$total <- sum(users.py)
-py.percent$percent <- (py.percent$users / py.percent$total) * 100
-py.percent$language <- "py"
-
-
-java.percent <- as.data.frame(week)
-java.percent$users <- users.java
-java.percent$total <- sum(users.java)
-java.percent$percent <- (java.percent$users / java.percent$total) * 100
-java.percent$language <- "java"
-
-total.percent <- rbind(py.percent, java.percent)
-
-total.percent %>% ggplot(aes(x = week, y = percent)) + geom_col(aes(fill = language),stat = "identity",position = "dodge") + scale_x_discrete(limits=c("segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado", "domingo")) + theme(axis.text.x = element_text(angle = 45, hjust = 1)) + labs(title = "Porcentagem de Edições por Dia da Semana", x = "Dia da Semana" , y= "Porcentagem", fill = "Linguagem")
-
-  
+dados %>% ggplot(aes(y= users, x= file_extension, color= language)) +  geom_boxplot() + geom_jitter() + scale_color_manual(values=c("#00bfc4", "#E69F00")) + guides(color=FALSE) + labs(title = "Atividade de usuários no Final de Semana", x = "Linguagem de Programação", y = "Usuários") + theme(plot.title = element_text(hjust = 0.5))
 ```
 
-2. Existe uma diferença significativa entre as duas linguagens na sua variação de popularidade nos finais de semana?
+Analisando o gráfico é possível notar que existe uma diferença na casa das centenas entre a popularidade de python e java nos finais de semana, tendo python uma maior popularidade. Para confirmar a veracidade dessa afirmação será calculado o intervalo de confiança entre a diferença da mediana de atividades de python e java no final de semana.
 
-Analisando o gráfico acima é possível afirmar que as linguagens se comportam de maneira semelhante quanto a distribuição de porcentagem das edições entre os dias da semana, assim podemos notar que não há uma diferença significativa entre as duas linguagens na sua variação de popularidade nos finais de semana. 
+```{r}
+median_japy <- bootstrap2(dados$users, 
+                         treatment = dados$language,
+                         median,
+                         R = 15000)
+
+median_japy_ci <- CI.percentile(median_japy, probs = c(.025, .975))
+
+median_japy_ci <- abs(median_japy_ci)
+
+data.frame(median_japy_ci) %>% 
+  ggplot() + 
+  geom_errorbar(aes(x = "Intervalo de confiança da diferença entre as medianas", ymin = X2.5., ymax = X97.5.), width = .2) + 
+  geom_hline(yintercept = 465.5, colour = "#00bfc4")
+      
+```
+
+Dessa forma é possível afirmar que nossa conclusão estava correta, pois o intervalo de confiança entre as diferenças das medianas das atividades de usuário de python e java nos finais de semana é de [382,549] com 95% de confiança. Assim temos que Python tem uma popularidade ligeiramente maior nos finais de semana.
