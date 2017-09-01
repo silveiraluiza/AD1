@@ -1,0 +1,202 @@
+---
+title: "Laboratório 5 CP 3"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(GGally)
+library(broom)
+library(pscl)
+library(modelr)  
+library(stargazer)
+library(vcd)
+library(gridExtra)
+
+```
+# Introdução
+
+A análise será feita sobre os mesmos dados da anterior, sendo esses os dados do Speed Dating (que descrevem 5000 encontros relâmpagos de 4 minutos envolvendo 310 jovens americanos. Onde após cada encontro, os participantes preenchiam fichas avaliando aqueles com quem se encontraram), no entanto o objetivo dela é correlacionar a 'nova' coluna dec (que diz se p1 gostaria de se encontrar novamente com p2) com os dados de como foi o encontro relâmpago.
+
+Esse estudo deverá ser capaz de responder as seguintes perguntas:
+
+1. Dentre os fatores que você acha que podem ter efeito no match (dec), quais fatores têm efeito significativo na chance de p1 decidir se encontrar novamente com p2? E como é esse efeito (positivo/negativo)?
+
+2. Que fatores nos dados têm mais efeito na chance de um participante querer se encontrar novamente com outro?)
+
+### Exportando e limpando os dados
+
+```{r, message=FALSE, warning=FALSE}
+
+speed_dating <- read_csv("speed-dating2.csv")
+
+speed_dating <- speed_dating %>%
+  dplyr::select(dec, attr, fun, sinc, amb, like, shar,intel, fun, prob) %>%
+  mutate(dec = as.factor(dec)) %>%
+  na.omit()
+```
+
+# Explorando as Variáveis
+
+As variáveis escolhidas foram as de avaliação do encontro:
+
+1. attr : quão atraente p1 achou p2
+2. sinc : quão sincero p1 achou p2
+3. intel : quão inteligente p1 achou p2
+4. fun : quão divertido p1 achou p2
+5. amb : quão ambicioso p1 achou p2
+6. shar : quanto p1 achou que compartilha interesses e hobbies com p2
+7. like : no geral, quanto p1 gostou de p2?
+8. prob : que probabiliade p1 acha que p2 tem de querer se encontrar novamente com p- (escala 1-10)
+
+Elas foram filtradas dessa maneira pois são as mais relevantes para o estudo, dado que queremos saber o que no encontro relâmpago mais influencia a vontade de um participante querer encontrar o outro novamente. Sendo assim primeiro visualizaremos a distribuição de todas essas variáveis em relação a dec (em boxplots) para ter uma ideia do panorama geral dos dados.
+
+Temos que se o boxplot de uma variável mostrar que quando dec é 'no' ela se concentra nas notas baixas e quando dec é 'yes' ela se concentra em notas altas é mais provável que haja uma correlação positiva entre a variável e a vontade de um participante querer encontrar outro novamente. Da mesma maneira se as notas baixas se concentrarem no 'yes' e as altas no 'no' há mais probabilidade de existir uma correlação também, porém negativa.  
+
+```{r, echo=FALSE}
+
+a <- ggplot(speed_dating, aes(x = dec, y = attr)) +
+  geom_boxplot(color="#f45342") +
+  geom_jitter(alpha = 0.07, color="#f45342") +
+  labs(title="Atributos X Interesse", x= "Interesse em um Novo Encontro", y="Atração")
+
+s <- ggplot(speed_dating, aes(x = dec, y = sinc)) +
+  geom_boxplot(color="#f49841") +
+  geom_jitter(alpha = 0.07, color="#f49841") +
+  labs( x= "Interesse", y="Sinceridade")
+
+i <- ggplot(speed_dating, aes(x = dec, y = intel)) +
+  geom_boxplot(color="#eacd3a") +
+  geom_jitter(alpha = 0.07, color="#eacd3a") +
+  labs( x= "Interesse", y="Inteligência")
+
+d <- ggplot(speed_dating, aes(x = dec, y = fun)) +
+  geom_boxplot(color="#8cd147") +
+  geom_jitter(alpha = 0.07, color="#8cd147") +
+  labs(x= "Interesse", y="Divertida(o)")
+
+am <- ggplot(speed_dating, aes(x = dec, y = amb)) +
+  geom_boxplot(color="#45cc67") +
+  geom_jitter(alpha = 0.07, color="#45cc67") +
+  labs(x= "Interesse", y="Ambiciosa(o)")
+
+l <- ggplot(speed_dating, aes(x = dec, y = like)) +
+  geom_boxplot(color="#44cec9") +
+  geom_jitter(alpha = 0.07, color="#44cec9") +
+  labs(x= "Interesse", y="Like")
+
+p <- ggplot(speed_dating, aes(x = dec, y = prob)) +
+  geom_boxplot(color="#434aad") +
+  geom_jitter(alpha = 0.07, color="#434aad") +
+  labs(x= "Interesse", y="Chance de reencontro")
+
+sh <- ggplot(speed_dating, aes(x = dec, y = shar)) +
+  geom_boxplot(color="#9e43b2") +
+  geom_jitter(alpha = 0.07, color="#9e43b2") +
+  labs(x= "Interesse", y="Quanto Acha que Tem Interesses em Comum")
+
+
+ grid.arrange(a,s,i,d, ncol=2)
+ grid.arrange(am,l,p,sh,ncol=2)
+
+
+```
+
+Dessa maneira podemos observar que quatro variáveis se destacam, a atração, o quanto a pessoa é divertida, o like e a chance de reencontro, todas com correlação aparentemente positiva. Iremos provar, ou refutar essa hipótese criando o modelo com regressão logística.
+
+# Modelo
+
+```{r, warning=FALSE}
+
+model <- glm(dec ~ attr + sinc + intel + fun + shar + amb + like + prob,
+              data = speed_dating,
+              family = "binomial")
+
+tidy(model, conf.int = TRUE, exponentiate = TRUE)
+
+```
+Mais uma vez iremos explicar algumas das informações presentes na tabela acima:
+
+1. P value: É a medida estatística que mostra o quão a influência da variável na variável de saída é significante.
+ 
+2. Estimate: Mostra o coeficiente de correlação da variável no modelo, que será o quanto ela influencia na variável de saída. Temos que quando Estimate é maior do que 1 a variável independente influencia a dependente de maneira positiva, quando ele é menor do que 1 a influência é negativa.
+
+3. conf low e conf high: São os intervalos de confiança para os coeficientes das variáveis do modelo. Se eles interceptarem o 0, não é possível afirmar que existe qualquer significância na influência deles na variável de saída. Em ambos os casos o 0 não está presente nos intervalos de confiança dos coeficientes, portanto podemos afirmar que há significância na influência deles na variável de saída.
+
+Dessa maneira podemos concluir que a atração, o quanto a pessoa é divertida, a quantidade de interesses que a pessoa crê que tem em comum com a outra, o quanto ela gostou da outra e a probabilidade de que o participante acha que aquela quer vê-la novamente são as variáveis independentes que tem influência positiva no modelo.
+
+De maneira análoga, temos que as variáveis com o valor estimate menor do que 1, isto é: Ambição, sinceridade e inteligência, possuem  correlação negativa com dec (o interesse em ter um novo encontro).
+
+### Pseudo R²
+
+A regressão logística não possui um valor R² convencional que mostra o quanto o modelo explica o comportamento da variável, porém com o uso da função pR2, iremos mostrar os valores das medidas dos pseudo R² existentes:
+
+```{r}
+pR2(model)
+```
+
+Assim temos que:
+
+De acordo com o pseudo R² de McFadden o modelo explica 32% do comportamento da variável. Utilizando o Maximum Likehood teriamos que o modelo explica 35,7% do comportamento e de acordo com o pseudo R² de Cragg e Uhler o modelo explica aproximadamente 48% do comportamento da variável.
+
+## Respondendo a Primeira Pergunta
+
+Usaremos o stargazer para mostrar de maneira mais legível as correlações entre as variáveis independentes e a dependente.
+
+```{r}
+
+stargazer(model, type="text")
+
+
+``` 
+
+Dessa forma temos que, em ordem de significância, os fatores que tem efeito positivo na chance de p1 decidir se encontrar novamente com p2 são:
+
+1. O quanto p1 gostou de p2 (like)
+2. O quanto p1 achou p2 atraente (attr)
+3. O quanto p1 acha que p2 vai querer um segundo encontro (prob)
+4. O quanto p1 acha que tem interesses em comum com p2 (shar)
+5. O quanto p1 achou p2 divertido (fun)
+
+Agora, em ordem de significância, os fatores que tem efeito negativo na chance de p1 decidir se encontrar novamente com p2:
+
+1. O quanto p1 achou p2 sincero (sinc)
+2. O quanto p1 achou p2 ambicioso (amb)
+3. O quanto p1 achou p2 inteligente (intel)
+
+Porém temos que o quanto p1 achou p2 inteligente chega a ser quase irrelevante nesse modelo, é uma influência bastante fraca.
+
+## Respondendo a Segunda Pergunta
+
+"Que fatores nos dados têm mais efeito na chance de um participante querer se encontrar novamente com outro?"
+
+Esses fatores seriam o like e o attr, isto é, o quanto p1 gostou de p2 e o quanto p1 achou p2 atrante, respectivamente. Ambos os fatores tem correlação bem mais alta do que os outros escolhidos para esse estudo.
+
+Apesar de não influenciarem tanto quanto os citados acima iremos citar a sinceridade e ambição como relevantes também, pois suas influências negativas são maiores do a de todas as outras variáveis (menos like e attr) sendo a influência destas positiva ou não. 
+
+## Previsões do Modelo
+
+Abaixo iremos analisar se o modelo tem muitos acertos em relação à suas previsões:
+
+```{r, warning=FALSE}
+
+previsoes = model %>% 
+  augment(type.predict = "response") %>% 
+  mutate(modelo = .fitted > .5, 
+         dados = dec == "yes")
+
+xtabs(~ modelo + dados, data = previsoes)
+```
+
+Desse modo temos que o modelo acertou 3153 vezes, teve 448 falso negativos e 500 falso positivos.
+
+### Visualização
+
+```{r}
+mosaic(dados ~ modelo, data = previsoes, 
+       shade = TRUE)
+```
+
+A parte cinza clara na variável FALSE (em modelo) representa os acertos, na TRUE a parte cinza escura é a que representa os acertos do modelo.

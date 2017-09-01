@@ -1,0 +1,337 @@
+---
+title: "Problema 5 CP1"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(resample)
+library(tidyr)
+library(modelr)
+library(broom)
+library(GGally)
+library(corrgram)
+library(ggplot2)
+library(gridExtra)
+```
+
+## Dados
+
+Os dados dessa análise provém de um experimento chamado Speed Dating, eles descrevem 5000 encontros relâmpagos de 4 minutos envolvendo 310 jovens americanos. Os dados originais foram coletados por professores da Columbia Business School. Os participantes participavam de vários encontros de 4 minutos por noite. Após cada um, preenchiam fichas avaliando aqueles com quem se encontraram. Cada linha nos dados representa um desses encontros.
+
+
+```{r}
+
+# dados
+sp <- read.csv("speed-dating.csv")
+
+# Dados com a informação do match
+matches <- read.csv("speed-dating2.csv")
+
+# Separando o conjunto de dados de homens
+homens <- sp %>% filter(gender==1)
+  
+# Separando o conjunto de dados de mulheres
+mulheres <- sp %>% filter(gender==0)
+  
+
+```
+
+### As variáveis
+
+1. iid : id do participante p1 no encontro
+2. gender : sexo do p1, 0 = mulher
+3. order : dos vários encontros realizados em uma noite, esse foi o n-ésimo, segundo essa variável
+4. pid : id do participante p2
+5. int_corr : correlação entre os interesses de p1 e p2
+6. samerace : p1 e p2 são da mesma raça?
+7. age_o : idade de p2
+8. age : idade de p1
+9. field : campo de estudo de p1
+10. race : raça de p1. O código é Black/African American=1; European/Caucasian-American=2; Latino/Hispanic American=3; Asian/Pacific Islander/Asian-American=4;	Native American=5; Other=6
+11. from : de onde p1 é
+12. career : que carreira p1 quer seguir
+13. sports, tvsports, exercise, dining, museums, art, hiking, gaming, clubbing, reading, tv, theater, movies, concerts, music, shopping, yoga : De 1 a 10, quão interessado p1 é em cada uma dessas atividades.
+14. attr : quão atraente p1 achou p2
+15. sinc : quão sincero p1 achou p2
+16. intel : quão inteligente p1 achou p2
+17. fun : quão divertido p1 achou p2
+18. amb : quão ambicioso p1 achou p2
+19. shar : quanto p1 achou que compartilha interesses e hobbies com p2
+20. like : no geral, quanto p1 gostou de p2?
+21. prob : que probabiliade p1 acha que p2 tem de querer se encontrar novamente com p- (escala 1-10)
+22. attr3_s : quanto p1 acha que é atraente
+23. sinc3_s : quanto p1 acha que é sincero
+24. intel3_s : quanto p1 acha que é inteligente
+25. fun3_s : quanto p1 acha que é divertido
+26. amb3_s : quanto p1 acha que é ambicioso
+
+Dado que são muitas variáveis não iremos trabalhar com todas, portanto iremos filtrar as que achamos mais relevantes para esse estudo.
+
+```{r}
+
+homens <- homens %>% select(age,samerace,race, attr, sinc, intel, fun, amb, shar, int_corr, like, prob, attr3_s, sinc3_s, intel3_s, fun3_s, amb3_s) 
+
+mulheres <- mulheres %>% select(age,samerace,race, attr, sinc, intel, fun, amb, shar, int_corr, like, prob, attr3_s, sinc3_s, intel3_s, fun3_s, amb3_s)
+
+```
+
+
+### Visão de homens e mulheres sobre os parceiros
+
+Iremos fazer uma análise rápida das variáveis que usaremos nesse estudo, primeiro veremos se há alguma diferença notável de comportamento nas variáveis que determinam as avaliações masculinas e femininas em relação aos atributos dos seus parceiros.
+
+```{r}
+hv <- homens %>% select(attr,sinc,intel,fun,amb,like)
+hv <- na.omit(hv)
+
+
+likeh <- hv %>% ggplot(aes(x=like)) + geom_bar(fill= "#B0FF5A")+xlab("Quanto Gostou") + ylab("Frequência") + ylim(0,700)
+attrh <- hv %>% ggplot(aes(x=attr)) + geom_bar(fill= "#D4FFA7")+xlab("Atraente") + ylab("Frequência") + ylim(0,650)
+sinch <- hv %>% ggplot(aes(x=sinc)) + geom_bar(fill= "#587F2D")+xlab("Sincera") + ylab("Frequência") +ylim(0,650)
+intelh <- hv %>% ggplot(aes(x=intel)) + geom_bar(fill= "#AACC85")+xlab("Inteligente") + ylab("Frequência") + ylim(0,650)
+funh <- hv %>% ggplot(aes(x=fun)) + geom_bar(fill= "#537F57")+xlab("Divertida") + ylab("Frequência") + ylim(0,550)
+ambh <- hv %>% ggplot(aes(x=amb)) + geom_bar(fill= "#85CC8B")+xlab("Ambiciosa") + ylab("Frequência") + ylim(0,550)
+
+mv <- mulheres %>% select(attr,sinc,intel,fun,amb,like)
+mv <- na.omit(mv)
+
+likem <- mv %>% ggplot(aes(x=like)) + geom_bar(fill= "#5AFBFF") +xlab("Quanto Gostou") + ylab("Frequência") + ylim(0,700)
+attrm <- mv %>% ggplot(aes(x=attr)) + geom_bar(fill= "#A7FDFF") +xlab("Atraente") + ylab("Frequência") + ylim(0,650)
+sincm <- mv %>% ggplot(aes(x=sinc)) + geom_bar(fill= "#497E7F") +xlab("Sincero") + ylab("Frequência") + ylim(0,650)
+intelm <- mv %>% ggplot(aes(x=intel)) + geom_bar(fill= "#85CACC") +xlab("Inteligente") + ylab("Frequência") + ylim(0,650)
+funm <- mv %>% ggplot(aes(x=fun)) + geom_bar(fill= "#536B7F") +xlab("Divertido") + ylab("Frequência") + ylim(0,550)
+ambm <- mv %>% ggplot(aes(x=amb)) + geom_bar(fill= "#A7D5FF") +xlab("Ambicioso") + ylab("Frequência") + ylim(0,550)
+
+```
+
+```{r,echo=FALSE}
+
+grid.arrange(likeh,likem,attrh,attrm, ncol=2, top = "Percepção do Parceiro: Homens x Mulheres")
+
+grid.arrange(sinch,sincm,intelh,intelm, ncol=2)
+
+grid.arrange(funh,funm,ambh,ambm, ncol=2)
+
+```
+
+É perceptível que a distribuição das variáveis é bastante semelhante, a única diferença notável é na distribuição da percepção da ambição do parceiro, homens tendem a ver as mulheres como menos ambiciosas do que elas os veem. Também há uma diferença (mesmo que pouca) na percepção da sinceridade, mulheres acham os homens um pouco mais sinceros do que eles as acham.
+
+Dessa forma foram gerados dois questionamentos: 
+
+1. Existe diferença no que mais chama atenção e influencia um gênero a gostar de outro? 
+
+2. A correlação de interesses entre os participantes e o quanto os participantes acham que compartilham interesses tem influência no quanto eles se gostam?  
+
+## 1. O que mais chama atenção das mulheres em um encontro? E dos homens? Há uma diferença?
+
+Queremos saber qual o quesito que influencia mais no fato de mulheres e homens gostarem do parceiro designado, para isso analisaremos qual variável possui maior correlação com like. Esse quesito será considerado o que chama mais atenção em um encontro, pois é o que possui maior correlação e consequentemente maior importância. Após acharmos que atributo é esse para homens e para mulheres veremos se há alguma diferença entre o que os gêneros consideram como mais importante.
+
+Primeiramente utilizaremos uma biblioteca chamada GGally que nos mostra a correlação de cada uma das variáveis entre si e com like, assim ajudando a avaliar o comportamento delas. 
+
+As variáveis selecionadas são: fun, attr, sinc, intel e amb.
+
+```{r}
+mv %>% ggpairs(title="Correlação Entre Atributos (Mulheres)")
+
+```
+
+Observamos que a aparência (Corr=0.678) e o quanto o parceiro é divertido (Corr=0.702) são os atributos com maior correlação com o quanto a mulher gosta do parceiro.
+
+```{r}
+hv %>% ggpairs(title="Correlação Entre Atributos (Homens)")
+```
+
+Podemos notar que o público masculino possui um comportamento semelhante, sendo a aparência (Corr=0.644) e o quanto a parceira é divertida (Corr=0.648) os atributos com maior correlação com o quanto ele gosta dela, a única diferença é que a correlação entre gostar do parceiro e o quanto ele é divertido e atraente é ligeiramente maior no público feminino.
+
+## Modelos de Regressão
+
+A seguir faremos os dois modelos de regressão para as variáveis, porém só usaremos os atributos que mais influenciaram like, no caso a aparência (attr) e o quanto a pessoa é divertida (fun).  
+
+```{r}
+mod_fun_attr_m <- lm(like ~ fun + attr, data = mv)
+
+tidy(mod_fun_attr_m, conf.int = TRUE)
+```
+
+
+```{r}
+mod_fun_attr_h <- lm(like ~ fun + attr, data = hv)
+
+tidy(mod_fun_attr_h, conf.int = TRUE)
+```
+
+Podemos perceber que ambos os modelos estimaram que a variável fun é a que possui maior influência sobre a variável de saída like, porém ela possui ainda um valor muito parecido com a de attr, principalmente no caso dos homens.
+
+Podemos obter várias informações importantes avaliando as tabelas mostradas acima, entre elas:
+ 
+1. P value: É a medida estatística que mostra o quão a influência da variável na variável de saída é significante.
+ 
+2. Estimate: Mostra o coeficiente de correlação da variável no modelo, que será o quanto ela influencia na variável de saída.
+
+3. conf low e conf high: São os intervalos de confiança para os coeficientes das variáveis do modelo. Se eles interceptarem o 0, não é possível afirmar que existe qualquer significância na influência deles na variável de saída. Em ambos os casos o 0 não está presente nos intervalos de confiança dos coeficientes, portanto podemos afirmar que há significância na influência deles na variável de saída.
+
+
+## Análise dos resíduos
+
+### Modelo Feminino
+
+A seguir serão analisados os resíduos do modelo feminino para cada variável independente:
+
+Variável attr:
+
+```{r}
+mod_fun_attr_residuos_m <- mv %>% 
+  add_predictions(mod_fun_attr_m) %>%
+  add_residuals(mod_fun_attr_m)
+
+mod_fun_attr_residuos_m %>% ggplot(aes(x=attr)) +geom_jitter(aes(y=resid), alpha=.5, color= "#536B7F") + xlab("Atraente") + ylab("Resíduos")
+
+```
+
+Variável fun:
+
+```{r}
+mod_fun_attr_residuos_m %>% ggplot(aes(x=fun)) +geom_jitter(aes(y=resid), alpha=.5, color= "#5AFBFF") + xlab("Divertido") + ylab("Resíduos")
+```
+
+Para ambas as variáveis temos que os resíduos se concentram entre -3 e 3, números baixos, e, dessa maneira, aceitáveis, há poucos resíduos. 
+
+### Modelo masculino
+
+A seguir serão analisados os resíduos do modelo maculino para cada variável independente:
+
+Variável attr:
+
+```{r}
+mod_fun_attr_residuos_h <- hv %>% 
+  add_predictions(mod_fun_attr_h) %>%
+  add_residuals(mod_fun_attr_h)
+
+mod_fun_attr_residuos_h %>% ggplot(aes(x=attr)) +geom_jitter(aes(y=resid), alpha=.5, color= "#6A7F53") + xlab("Atraente") + ylab("Resíduos")
+
+```
+
+Variável fun:
+
+```{r}
+mod_fun_attr_residuos_h %>% ggplot(aes(x=fun)) +geom_jitter(aes(y=resid), alpha=.5, color= "#85CC8B") + xlab("Divertida") + ylab("Resíduos")
+
+```
+
+Para ambas as variáveis temos que os resíduos se concentram entre -3 e 3, números baixos, e, dessa maneira, aceitáveis, há poucos resíduos. 
+
+## Visualização dos Modelos 
+
+Abaixo será visualizado o modelo feminino graficamente:
+
+```{r}
+p <- mv %>% 
+  data_grid(attr=seq_range(attr, 4), fun=seq_range(fun, 4)) %>%
+  add_predictions(model = mod_fun_attr_m)
+
+mv %>%
+  ggplot(mapping = aes(x = fun, y = like)) + 
+  geom_count(alpha = 0.4) + 
+  geom_line(data= p, aes(y = pred, group=attr, color=attr))  + 
+  geom_abline(intercept = 69, slope = -.65, color  = "darkblue") + ylab("Gostar") + xlab("Divertido") + labs(color="Atraente") 
+
+```
+
+Abaixo será visualizado o modelo masculino graficamente:
+
+```{r}
+p <- hv %>% 
+  data_grid(attr=seq_range(attr, 4), fun=seq_range(fun, 4)) %>%
+  add_predictions(model = mod_fun_attr_h)
+
+hv %>%
+  ggplot(mapping = aes(x = fun, y = like)) + 
+  geom_count(alpha = 0.4) + 
+  geom_line(data= p, aes(y = pred, group=attr, color=attr))  + 
+  geom_abline(intercept = 69, slope = -.65, color  = "darkblue")+ ylab("Gostar") + xlab("Divertida") + labs(color="Atraente") 
+
+```
+
+
+Os gráficos acima mostram o comportamento de ambas as variáveis, também é mostrado como elas influenciam like. No eixo y temos a nota de like e no x o quão divertida a pessoa achou seu parceiro. As linhas horizontais que interceptam os gráficos representam o quão atraente uma pessoa achou seu parceiro. As quatro linhas variam de acordo com a faixa de cores. O quão mais escura a linha é menos atraente foi considerado o parceiro.
+
+N é a frequência de dada nota. E a variável like tem sua nota dada pelo cruzamento entre um ponto que intercepta o eixo x e a linha horizontal attr.
+
+## Análise do R²
+
+O coeficiente de determinação, também chamado de R², é uma medida de ajustamento de um de regressão linear em relação aos valores observados. O R² varia entre 0 e 1, indicando, em percentagem, o quanto o modelo consegue explicar os valores observados. Quanto maior o R², mais explicativo é modelo, melhor ele se ajusta à amostra. Abaixo iremos visualizar o R² dos nossos modelos.
+
+Modelo Feminino:
+
+```{r}
+glance(mod_fun_attr_m) %>% select(r.squared, adj.r.squared, sigma, statistic, p.value)
+```
+
+Modelo masculino:
+
+```{r}
+glance(mod_fun_attr_h) %>% select(r.squared, adj.r.squared, sigma, statistic, p.value)
+
+```
+
+Temos que o modelo feminino explica 59% do comportamento da variável like (para o conjunto de dados femininos), enquanto o masculino consegue explicar 54% do comportamento.
+
+### Conclusão
+
+Após essa análise podemos afirmar que o que mais chama atenção de mulheres e de homens em um primeiro encontro é o quão dirvetido o parceiro é, não há uma difereça real entre o que os homens acham mais importante e o que as mulheres tem como mais importante, ambos também dão valor a aparência do parceiro.
+
+## 2. A correlação de interesses entre os participantes e o quanto os participantes acham que compartilham interesses tem influencia no quanto eles se gostam?
+
+Quando os participantes tem interesses em comum é mais provável que eles gostem um do outro? A correlação real entre seus interesses é mais ou menos importante do que os participantes acharem que tem interesses em comum? Iremos responder essas perguntas avaliando a correlação entre as variáveis shar e int_corr com like.
+
+Primeiramente usaremos o GGPairs:
+
+```{r}
+sp <- na.omit(sp)
+
+sp %>% select(like,shar,int_corr) %>% ggpairs(title="Correlação Interesses dos Participantes e o Quanto se Gostam")
+```
+
+Dessa forma observamos que shar (o quanto os participantes acham que tem interesses em comum) tem uma correlação significativa (moderada) em relação a like, enquanto a correlação entre a realidade dos interesses em comum dos participantes e like é bem baixa (0.03).
+
+Também é curioso observar que a correlação entre shar e int_corr é bem baixa.
+
+### Modelo de Regressão
+
+```{r}
+mod_int_shar <- lm(like ~ int_corr + shar, data = sp)
+
+tidy(mod_int_shar, conf.int = TRUE)
+```
+
+O modelo de regressão confirma o que o GGPairs nos mostrou, o quanto os participantes acham que tem interesses em comum é mais importante do que a realidade dos seus interesses em comum, sendo a correlação entre o que os participantes acham e o quanto eles gostaram do parceiro moderada (0.53).
+
+### Resíduos
+
+Analisaremos os resíduos do modelo em relação a variável shar:
+
+```{r}
+mod_int_shar_residuos <- sp %>% 
+  add_predictions(mod_int_shar) %>%
+  add_residuals(mod_int_shar)
+
+mod_int_shar_residuos %>% ggplot(aes(x=shar)) +geom_jitter(aes(y=resid), alpha=.5, color= "#4286f4") + xlab("Participante Acha que Compartilha Interesses com Parceiro") + ylab("Resíduos")
+
+```
+
+Para a variável em questão temos que os resíduos se concentram entre -4 e 4, números baixos, e, dessa maneira, aceitáveis.
+
+### Análise do R²
+
+```{r}
+glance(mod_int_shar) %>% select(r.squared, adj.r.squared, sigma, statistic, p.value)
+```
+Dessa forma temos que o modelo explica 41% do comportamento da variável like.
+
+### Conclusão
+
+Temos que: De acordo com os coeficientes de correlação analisados, o quanto participantes acham que tem em comum é importante para a avaliação positiva do parceiro, e que essa percepção não tem correlação ou dependência forte com a realidade dos seus interesses em comum, inclusive sendo mais importante que ela em relação ao resultado final do encontro.

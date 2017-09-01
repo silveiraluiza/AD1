@@ -12,12 +12,18 @@ library(plotly)
 library(resample)
 ```
 
-5. A variância na atividade de uma linguagem no final de semana é menor do que durante a semana? R: Creio que sim, tanto pelo fato do final de semana conter menos dias como porque em geral se programa menos nos finais de semana, fazendo com que a atividade nesses dias seja menor e mais homogênea.
+## Introdução
 
-6. Os meses que marcam período festivo ou de férias possuem contribuições significativamente diferentes do que os outros? R: Acredito que sim, principalmente nos meses de Dezembro e Janeiro por conta do Natal e Ano Novo.
+Para esta análise usaremos uma amostra dados de dados da atividade global do github. Os dados brutos contém a contagem de quantas pessoas editaram arquivos com cada extensão de arquivo em cada dia de 2016 e 2017 no github. Não temos dados de todos os repositórios nem de todos os usuários, portanto estamos trabalhando com uma amostra. 
+
+## Conhecendo e Manipulando os Dados
+
+O conjunto de dados é uma amostra de dados da atividade global do github, suas variáveis são: a extensão do arquivo, o dia do mês, o mês e o ano em que arquivos com essa extenção foram editados e o número de usuários que editaram os arquivos.
+
+Os dados serão filtrados para que a amostra contenha apenas arquivos com extensões usadas por linguagens de programação, a seguir será analisado o gráfico que apresenta o comportamento da atividade de usuários de todas as linguagens.
 
 
-```{r}
+```{r, fig.width=10,fig.height=7,message=FALSE,warning=FALSE}
 
 dados <- read.csv("github-users-committing-filetypes.csv")
 
@@ -42,6 +48,7 @@ dados = rbind(dados.week,dados.weekend)
 
 rm(dados.week)
 rm(dados.weekend)
+rm(not.language)
 
 names(dados)[7] <- "weekend"
 
@@ -56,32 +63,33 @@ plot_p1
 ```
 
 
+Podemos observar que em geral a mediana das atividades de usuário nos dias de semana é maior que no final de semana, no entanto as variâncias (que podem ser inferidas analisando o tamanho de cada boxplot) das atividades nos dias de semana e nos finais de semana parecem estarem próximas sempre. Nesta primeira parte da análise iremos observar o comportamento da variância nos dias de semana e finais de semana para a linguagem de programação C.
 
 
+## Variância em C
 
-## C
-
+Hipótese: Foi suposto que a variância nos finais de semana seria menor do que nos dias de semana, dado que existem mais dados para os dias de semana (pois existem mais dias de semana do que finais de semana) e porque acreditamos que a atividade no final de semana, por ser geralmente menor, tenderia a ser mais homogênea. 
 
 ```{r}
 
 plot_p1 <- dados %>% filter(file_extension == "c") %>%
   ggplot(aes(x = weekend, y = users, fill = weekend)) +
-  geom_boxplot() +
-  labs(title = "Atividade de usuários (C)", x = "Final de Semana", y = "Usuários") +
-  theme(plot.title = element_text(hjust = 0.5))
+  geom_boxplot() + scale_fill_manual(values=c("#999999", "#c17dd1")) +
+  labs(title = "Atividade de usuários (C)", x = "Final de Semana", y = "Usuários", fill = "Final de Semana") +
+  theme(plot.title = element_text(hjust = 0.5)) 
 
-ggplotly(plot_p1)
+ggplotly(plot_p1,width = 800,height = 500)
 
 ```
 
-
+Por meio do gráfico de boxplot é possível notar que existe uma diferença significativa entre a variância nos dias de semana e finais de semana, tendo os dias de semana uma variância mais elevada. Porém como o conjunto de dados é uma amostra iremos realizar o procedimento de bootstrapping para confirmar se nossa conclusão é válida.
 
 
 ```{r}
 c <- dados %>% filter(file_extension == "c")
 
 var_c <- bootstrap2(c$users, 
-                         treatment = cs$weekend,
+                         treatment = c$weekend,
                          var,
                          R = 15000)
 
@@ -90,22 +98,33 @@ var_c_ci <- CI.percentile(var_c, probs = c(.025, .975))
 data.frame(var_c_ci) %>% 
   ggplot() + 
   geom_errorbar(aes(x = "Intervalo de confiança da diferença entre as variâncias", ymin = X2.5., ymax = X97.5.), width = .2) + 
-  geom_hline(yintercept = 35150.96, colour = "red")
+  geom_hline(yintercept = 35150.96, colour = "#c17dd1")
                                                                             
 ```
 
-## Meses
+Assim, temos que como o intervalo de confiança da diferença entre as variâncias dos dias da semana e dos finais de semana é [24959.02, 45200.25] com 95% de confiança, podemos confirmar que a variância de atividade nos dias de semana para a linguagem C é significativamente maior do que nos finais de semana, desse modo confirmando a hipótese inicial.
+
+## Verificando a atividade no período de férias
+
+Na segunda parte da nossa análise será verificado se há alguma mudança na atividade dos usuários em todas as linguagens de programação nos períodos de recesso, como no mês de Julho, Janeiro e Dezembro.
+
+Hipótese: A atividade dos usuários deve cair significativamente nos meses de férias, pois não estariam trabalhando, portanto não devem alterar os seus repositórios com a mesma frequência.
 
 ```{r}
+# Separar os dados em meses de férias ou não
 
 dados$holidays = dados$the_month %in% c(1,7, 12)
 
-p2 <- dados %>% ggplot(aes(x=holidays, y=users, fill = holidays )) + geom_boxplot(outlier.shape = NA) 
+p2 <- dados %>% ggplot(aes(x=holidays, y=users, fill = holidays )) + geom_boxplot(outlier.shape = NA) + labs(title = "Boxplot da Atividade de usuários", x = "Férias", y = "Usuários", fill= "Férias") + scale_fill_manual(values=c("#59a56a", "#5dbbbf"))
 
-ggplotly(p2)
+
+
+ggplotly(p2,width = 800,height = 500)
 ```
 
-## mediana
+Pelos boxplots é possível observar que a diferença entre o comportamento das atividades dos usuários é mínima, sendo até irrelevante, as medianas das atividades são praticamente iguais, para confirmar essa conclusão usaremos o bootstrap novamente. 
+
+### Calculando a diferença entre as medianas com bootstrap
 
 ```{r}
 median_holidays <- bootstrap2(dados$users, 
@@ -119,6 +138,46 @@ median_holidays_ci <- CI.percentile(median_holidays, probs = c(.025, .975))
 data.frame(median_holidays_ci) %>% 
   ggplot() + 
   geom_errorbar(aes(x = "Intervalo de confiança da diferença entre as medianas", ymin = X2.5., ymax = X97.5.), width = .2) + 
-  geom_hline(yintercept = 465.5, colour = "#00bfc4")
+  geom_hline(yintercept = 0, colour = "#00bfc4")
       
 ```
+
+Podemos observar que o intervalo de confiança da diferença entre as medianas das atividades nos meses sem férias e com férias é [-43, 76] (com 95% de confiança) dessa forma vemos que a diferença não é significativa, e que há chances dos meses com férias terem atividade um pouco maior do que os meses sem. Portanto concluimos que a hipótese levantada é nula.
+
+## Segunda Hipótese
+
+Levamos em consideração os meses de Janeiro, Julho e Dezembro, porém Julho são férias escolares, não é todo mundo que trabalha que tira férias nesse mês, portanto foi especulado que ele poderia estar interferindo com os resultados, já que Dezembro e Janeiro são os meses em que realmente todos (estudantes e trabalhadores) tem pelo menos alguns dias de folga.
+
+Hipótese: A atividade dos usuários deve cair pelo menos um pouco em dezembro e janeiro, pois são os meses onde há recesso para todos.
+
+
+```{r}
+
+dados$holidays = dados$the_month %in% c(1, 12)
+
+p2 <- dados %>% ggplot(aes(x=holidays, y=users, fill = holidays )) + geom_boxplot(outlier.shape = NA) + labs(title = "Boxplot da Atividade de usuários", x = "Férias", y = "Usuários", fill= "Férias") 
+
+ggplotly(p2,width = 800,height = 500)
+```
+
+É visto que não há nenhuma mudança significativa entre o gráfico acima e o anterior (com Julho incluso), portanto anula-se a hipótese. No entanto isso será confirmado com o uso de bootstrap.
+
+### Calculando a diferença entre as medianas com bootstrap
+
+```{r}
+median_holidays <- bootstrap2(dados$users, 
+                         treatment = dados$holidays,
+                         median,
+                         R = 15000)
+
+median_holidays_ci <- CI.percentile(median_holidays, probs = c(.025, .975))
+
+
+data.frame(median_holidays_ci) %>% 
+  ggplot() + 
+  geom_errorbar(aes(x = "Intervalo de confiança da diferença entre as medianas", ymin = X2.5., ymax = X97.5.), width = .2) + 
+  geom_hline(yintercept = 0, colour = "#00bfc4")
+      
+```
+
+Podemos observar que o intervalo de confiança da diferença entre as medianas das atividades nos meses sem férias e com férias é [-84, 50] (com 95% de confiança) dessa forma vemos que a diferença teve uma leve mudança, porém não foi o que era esperado, há agora mais chances dos meses com férias terem atividade um pouco maior do que os meses sem, no entanto a diferença continua sendo irrelevante. Dessa maneira temos que a hipótese é nula, a atividade dos usuários no github não apresenta diferenças significantes entre o periodo letivo e o de recesso.
